@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Up! x Water Circular Economy Quiz</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Kanit', sans-serif; background-color: #f0f8ff; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .feedback-modal { animation: fadeIn 0.25s ease-in-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.94); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .option-button {
+      transition: all 0.2s ease-in-out;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.06);
+    }
+    .option-button:hover:not(.disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(37,99,235,0.18), 0 4px 6px -4px rgba(37,99,235,0.10);
+    }
+    .correct   { background-color: #22c55e !important; color: white !important; border-color: #16a34a !important; }
+    .incorrect { background-color: #ef4444 !important; color: white !important; border-color: #dc2626 !important; }
+    .disabled  { cursor: not-allowed; opacity: 0.7; }
+
+    .timer-ring circle {
+      transition: stroke-dashoffset 1s linear;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    .wrong-card { border-left: 4px solid #ef4444; }
+  </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-4">
+
+  <!-- ===================== Screen 1: Setup ===================== -->
+  <div id="setup-screen" class="screen active w-full max-w-lg mx-auto">
+    <div class="bg-white p-8 rounded-2xl shadow-lg text-center border border-blue-100">
+
+      <svg class="w-20 h-20 mx-auto mb-4 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0
+          9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+      </svg>
+
+      <h1 class="text-3xl font-bold text-gray-800 mb-1">สร้างทีมของคุณ!</h1>
+      <p class="text-gray-500 mb-6">เล่นแบบทีม • สลับตาผู้เล่น • สุ่มคำถาม</p>
+
+      <div class="space-y-4 text-left">
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700">
+            ชื่อทีม <span class="text-red-500">*</span>
+          </label>
+          <input type="text" id="teamNameInput"
+            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm
+                   placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="เช่น ทีมสุดป่วน">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700">จำนวนผู้เล่น</label>
+          <select id="numPlayersSelect"
+            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-white
+                   focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            <option value="2">2 คน</option>
+            <option value="3">3 คน</option>
+            <option value="4" selected>4 คน</option>
+          </select>
+        </div>
+
+        <div id="playerInputsGrid" class="grid grid-cols-2 gap-4"></div>
+
+        <div class="pt-2">
+          <label class="block text-sm font-medium text-gray-700">จำนวนคำถามที่เล่น</label>
+          <select id="numQuestionsSelect"
+            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-white
+                   focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+          </select>
+        </div>
+
+        <div class="flex items-center gap-3 pt-1">
+          <input type="checkbox" id="timerToggle" class="w-5 h-5 accent-blue-600" checked>
+          <label for="timerToggle" class="text-sm font-medium text-gray-700">
+            เปิดใช้ Countdown Timer (30 วินาที / ข้อ)
+          </label>
+        </div>
+
+      </div>
+
+      <button id="startGameBtn"
+        class="mt-8 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg
+               hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2
+               focus:ring-blue-500 transition-transform transform hover:scale-105">
+        เริ่มเกม!
+      </button>
+
+      <p id="setup-error" class="text-red-500 text-sm mt-3 min-h-[20px]"></p>
+    </div>
+  </div>
+
+  <!-- ===================== Screen 2: Game ===================== -->
+  <div id="game-screen" class="screen w-full max-w-5xl mx-auto">
+    <div class="bg-white p-6 md:p-8 rounded-2xl shadow-lg border border-blue-100">
+
+      <!-- Header -->
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center
+                  mb-4 border-b pb-4 gap-2">
+        <div>
+          <h2 class="text-2xl font-bold text-blue-800">ทีม: <span id="displayTeamName"></span></h2>
+          <p class="text-sm text-gray-500">ตาของ:
+            <span id="currentPlayerName" class="font-bold text-blue-700"></span>
+          </p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
+          <div class="text-lg font-semibold text-gray-700 bg-blue-50 rounded-lg px-4 py-2 shadow-inner">
+            คะแนนรวม (Coin):
+            <span id="teamScoreDisplay" class="text-green-600 font-extrabold">0</span> 💰
+          </div>
+          <div class="text-lg font-semibold text-gray-700 bg-blue-50 rounded-lg px-4 py-2 shadow-inner">
+            ข้อที่:
+            <span id="questionIndexDisplay" class="text-blue-700 font-extrabold">0</span>
+            /<span id="totalQuestionsDisplay" class="font-bold">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress + R-Scores -->
+      <div class="mb-6">
+        <h3 class="text-md font-semibold text-gray-600 mb-2">
+          ความก้าวหน้า (
+          <span id="progress-count">0</span> /
+          <span id="progress-total">0</span> )
+        </h3>
+        <div class="w-full bg-gray-200 rounded-full h-2.5">
+          <div id="progress-bar"
+               class="bg-blue-500 h-2.5 rounded-full transition-all duration-500"
+               style="width:0%"></div>
+        </div>
+
+        <!-- R-Scores -->
+        <div class="mt-4">
+          <h3 class="text-md font-semibold text-gray-600 mb-2">คะแนนสะสมแยกตาม R-Type</h3>
+          <div class="grid grid-cols-5 md:grid-cols-10 gap-2 text-center">
+            <div class="p-2 bg-red-100 rounded-lg">
+              <p class="text-xs font-bold text-red-700">Reduce</p>
+              <p id="score-reduce" class="text-xl font-extrabold text-red-600">0</p>
+            </div>
+            <div class="p-2 bg-yellow-100 rounded-lg">
+              <p class="text-xs font-bold text-yellow-700">Reuse</p>
+              <p id="score-reuse" class="text-xl font-extrabold text-yellow-600">0</p>
+            </div>
+            <div class="p-2 bg-green-100 rounded-lg">
+              <p class="text-xs font-bold text-green-700">Recycle</p>
+              <p id="score-recycle" class="text-xl font-extrabold text-green-600">0</p>
+            </div>
+            <div class="p-2 bg-purple-100 rounded-lg">
+              <p class="text-xs font-bold text-purple-700">Rethink</p>
+              <p id="score-rethink" class="text-xl font-extrabold text-purple-600">0</p>
+            </div>
+            <div class="p-2 bg-blue-100 rounded-lg">
+              <p class="text-xs font-bold text-blue-700">Store</p>
+              <p id="score-store" class="text-xl font-extrabold text-blue-600">0</p>
+            </div>
+            <div class="p-2 bg-orange-100 rounded-lg">
+              <p class="text-xs font-bold text-orange-700">Avoid</p>
+              <p id="score-avoid" class="text-xl font-extrabold text-orange-600">0</p>
+            </div>
+            <div class="p-2 bg-cyan-100 rounded-lg">
+              <p class="text-xs font-bold text-cyan-700">Cascading</p>
+              <p id="score-cascading" class="text-xl font-extrabold text-cyan-600">0</p>
+            </div>
+            <div class="p-2 bg-pink-100 rounded-lg">
+              <p class="text-xs font-bold text-pink-700">Replace</p>
+              <p id="score-replace" class="text-xl font-extrabold text-pink-600">0</p>
+            </div>
+            <div class="p-2 bg-emerald-100 rounded-lg">
+              <p class="text-xs font-bold text-emerald-700">Recover</p>
+              <p id="score-recover" class="text-xl font-extrabold text-emerald-600">0</p>
+            </div>
+            <div class="p-2 bg-gray-100 rounded-lg">
+              <p class="text-xs font-bold text-gray-700">General</p>
+              <p id="score-general" class="text-xl font-extrabold text-gray-600">0</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Question Area -->
+      <div id="question-area" class="text-center bg-blue-50 p-6 rounded-lg">
+
+        <!-- Timer -->
+        <div id="timer-wrapper" class="flex justify-center mb-4 hidden">
+          <div class="relative w-16 h-16">
+            <svg class="timer-ring w-16 h-16" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="15.9155"
+                      fill="none" stroke="#e5e7eb" stroke-width="3"/>
+              <circle id="timer-circle" cx="18" cy="18" r="15.9155"
+                      fill="none" stroke="#3b82f6" stroke-width="3"
+                      stroke-dasharray="100 100" stroke-dashoffset="0"/>
+            </svg>
+            <span id="timer-text"
+                  class="absolute inset-0 flex items-center justify-center
+                         font-extrabold text-blue-700 text-lg"></span>
+          </div>
+        </div>
+
+        <p id="question-text"
+           class="text-xl md:text-2xl font-semibold text-gray-800 min-h-[80px]
+                  flex items-center justify-center">
+          กดปุ่ม "สุ่มคำถาม" เพื่อเริ่ม!
+        </p>
+
+        <div id="options-container" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+        <div id="feedback-area" class="mt-6 pt-4 border-t border-blue-200 hidden text-left">
+          <p id="feedback-message" class="text-lg font-bold mb-2"></p>
+          <p id="feedback-explanation" class="text-base text-gray-700"></p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="mt-6 text-center flex flex-col sm:flex-row gap-3 justify-center">
+        <button id="nextQuestionBtn"
+          class="bg-green-500 text-white font-bold py-3 px-8 rounded-lg
+                 hover:bg-green-600 transition-transform transform hover:scale-105
+                 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:scale-100">
+          สุ่มคำถาม
+        </button>
+        <button id="endEarlyBtn"
+          class="bg-gray-200 text-gray-800 font-bold py-3 px-8 rounded-lg
+                 hover:bg-gray-300 transition">
+          จบเกมตอนนี้
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===================== Screen 3: Scoreboard ===================== -->
+  <div id="scoreboard-screen" class="screen w-full max-w-4xl mx-auto">
+    <div class="bg-white p-8 rounded-2xl shadow-lg text-center border border-blue-100">
+
+      <svg class="w-24 h-24 mx-auto mb-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939
+          5.955 6.572.955-4.756 4.635 1.123 6.545z"/>
+      </svg>
+
+      <h1 class="text-4xl font-bold text-gray-800 mb-2">จบเกม!</h1>
+      <p class="text-gray-600 mb-6">
+        สรุปผลการเล่นของทีม
+        <span id="finalTeamName" class="font-bold"></span>
+      </p>
+
+      <div class="bg-gray-100 p-4 rounded-lg mb-6">
+        <p class="text-xl">
+          คะแนนรวม (Coin):
+          <span id="finalTeamScore" class="font-bold text-green-600"></span> 💰
+        </p>
+        <p class="text-md mt-1">
+          เวลาที่ใช้ทั้งหมด:
+          <span id="totalTime" class="font-bold text-blue-600"></span>
+        </p>
+        <p class="text-md mt-1">
+          ตอบถูก / ทั้งหมด:
+          <span id="finalAnswered" class="font-bold text-gray-700"></span>
+        </p>
+      </div>
+
+      <div class="mb-8 p-4 bg-blue-50 rounded-lg shadow-inner text-left">
+        <h3 class="text-2xl font-bold text-blue-700 mb-3 text-center">
+          คะแนนสะสมแยกตาม R-Type
+        </h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-center"
+             id="finalRSummary"></div>
+      </div>
+
+      <h2 class="text-2xl font-semibold text-gray-700 mb-4">สถิติผู้เล่นรายบุคคล</h2>
+      <div class="overflow-x-auto mb-8">
+        <table class="min-w-full bg-white border rounded-lg overflow-hidden">
+          <thead class="bg-gray-200">
+            <tr>
+              <th class="py-2 px-4 border-b text-left">รายชื่อผู้เล่น</th>
+              <th class="py-2 px-4 border-b">Coins ที่ได้</th>
+            </tr>
+          </thead>
+          <tbody id="stats-table-body"></tbody>
+        </table>
+      </div>
+
+      <div id="review-section" class="mb-8 hidden text-left">
+        <h2 class="text-2xl font-semibold text-gray-700 mb-4 text-center">
+          📋 ทบทวนข้อที่ตอบผิด
+        </h2>
+        <div id="wrong-answers-container" class="space-y-4"></div>
+      </div>
+
+      <button id="playAgainBtn"
+        class="mt-4 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg
+               hover:bg-blue-700 transition-transform transform hover:scale-105">
+        เล่นอีกครั้ง
+      </button>
+    </div>
+  </div>
+
+  <!-- Feedback Modal -->
+  <div id="feedback-modal"
+       class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div id="feedback-content"
+         class="feedback-modal text-center p-10 rounded-2xl text-white font-bold text-3xl shadow-xl">
+    </div>
+  </div>
+
+  <!-- ===================== SCRIPT ===================== -->
+  <script>
+  // ─────────────────────────────────────────────
+  // DOM
+  // ─────────────────────────────────────────────
+  const screens = {
+    setup:      document.getElementById('setup-screen'),
+    game:       document.getElementById('game-screen'),
+    scoreboard: document.getElementById('scoreboard-screen')
+  };
+
+  const setupError            = document.getElementById('setup-error');
+  const startGameBtn          = document.getElementById('startGameBtn');
+  const nextQuestionBtn       = document.getElementById('nextQuestionBtn');
+  const playAgainBtn          = document.getElementById('playAgainBtn');
+  const endEarlyBtn           = document.getElementById('endEarlyBtn');
+  const teamNameInput         = document.getElementById('teamNameInput');
+  const numPlayersSelect      = document.getElementById('numPlayersSelect');
+  const numQuestionsSelect    = document.getElementById('numQuestionsSelect');
+  const playerInputsGrid      = document.getElementById('playerInputsGrid');
+  const timerToggle           = document.getElementById('timerToggle');
+
+  const displayTeamName       = document.getElementById('displayTeamName');
+  const teamScoreDisplay      = document.getElementById('teamScoreDisplay');
+  const currentPlayerName     = document.getElementById('currentPlayerName');
+  const questionText          = document.getElementById('question-text');
+  const optionsContainer      = document.getElementById('options-container');
+  const progressBar           = document.getElementById('progress-bar');
+  const progressCount         = document.getElementById('progress-count');
+  const progressTotal         = document.getElementById('progress-total');
+  const questionIndexDisplay  = document.getElementById('questionIndexDisplay');
+  const totalQuestionsDisplay = document.getElementById('totalQuestionsDisplay');
+  const feedbackArea          = document.getElementById('feedback-area');
+  const feedbackMessage       = document.getElementById('feedback-message');
+  const feedbackExplanation   = document.getElementById('feedback-explanation');
+  const timerWrapper          = document.getElementById('timer-wrapper');
+  const timerCircle           = document.getElementById('timer-circle');
+  const timerText             = document.getElementById('timer-text');
+
+  const finalTeamName         = document.getElementById('finalTeamName');
+  const finalTeamScore        = document.getElementById('finalTeamScore');
+  const totalTimeEl           = document.getElementById('totalTime');
+  const statsTableBody        = document.getElementById('stats-table-body');
+  const finalAnswered         = document.getElementById('finalAnswered');
+  const finalRSummary         = document.getElementById('finalRSummary');
+  const reviewSection         = document.getElementById('review-section');
+  const wrongAnswersContainer = document.getElementById('wrong-answers-container');
+  const feedbackModal         = document.getElementById('feedback-modal');
+  const feedbackContent       = document.getElementById('feedback-content');
+
+  // ─────────────────────────────────────────────
+  // Question Bank (29 ข้อ)
+  // ─────────────────────────────────────────────
+  const allQuestions = [
+
+    // ── Reduce (4 ข้อ) ──────────────────────────────────────────────────────
+    {
+      q: "Reduce หมายถึงอะไร?",
+      r_type: "reduce",
+      options: ["ใช้น้ำมากขึ้น","ใช้น้ำน้อยลง","เทน้ำทิ้ง","เก็บน้ำไว้ใช้"],
+      answer: 1,
+      explanation: "Reduce (ลด) หมายถึงการลดปริมาณการใช้น้ำหรือทรัพยากรให้น้อยลง"
+    },
+    {
+      q: "ปิดก๊อกน้ำตอนแปรงฟัน เป็นการใช้ R ใด?",
+      r_type: "reduce",
+      options: ["Store","Reduce","Recycle","Rethink"],
+      answer: 1,
+      explanation: "การปิดก๊อกน้ำคือการลดปริมาณน้ำที่ใช้โดยไม่จำเป็น จึงเป็นหลัก Reduce (ลด)"
+    },
+    {
+      q: "ล้างผลไม้ในกะละมังแทนเปิดน้ำ เป็นการใช้ R ใด?",
+      r_type: "reduce",
+      options: ["Store","Reduce","Reuse","Rethink"],
+      answer: 1,
+      explanation: "การล้างในกะละมังเป็นการลดปริมาณน้ำเมื่อเทียบกับการเปิดน้ำไหลตลอด คือ Reduce (ลด)"
+    },
+    {
+      q: "การลดการอาบน้ำจากอ่างแช่ตัวเป็นการอาบน้ำฝักบัว จัดเป็นการใช้ R ใด?",
+      r_type: "reduce",
+      options: ["Reuse","Store","Reduce","Rethink"],
+      answer: 2,
+      explanation: "การเปลี่ยนพฤติกรรมเพื่อลดปริมาณการใช้น้ำต่อครั้งอย่างชัดเจน คือ Reduce (ลด)"
+    },
+
+    // ── Reuse (3 ข้อ) ───────────────────────────────────────────────────────
+    {
+      q: "Reuse หมายถึงอะไร?",
+      r_type: "reuse",
+      options: ["ใช้น้ำอีกครั้ง","ใช้น้ำแบบสิ้นเปลือง","ซื้อขวดน้ำใหม่","ใช้น้ำใหม่เท่านั้น"],
+      answer: 0,
+      explanation: "Reuse (ใช้ซ้ำ) หมายถึงการนำน้ำหรือสิ่งของกลับมาใช้ใหม่โดยตรงโดยไม่ต้องผ่านกระบวนการแปรรูป"
+    },
+    {
+      q: "ใช้น้ำล้างผักไปรดต้นไม้ เป็นการใช้ R ใด?",
+      r_type: "reuse",
+      options: ["Reuse","Store","Rethink","Reduce"],
+      answer: 0,
+      explanation: "การนำน้ำที่ใช้แล้วมาใช้ต่อโดยตรงถือเป็นหลัก Reuse (ใช้ซ้ำ)"
+    },
+    {
+      q: "ใช้น้ำล้างข้าวไปรดต้นไม้ เป็นการใช้ R ใด?",
+      r_type: "reuse",
+      options: ["Reuse","Reduce","Recycle","Rethink"],
+      answer: 0,
+      explanation: "การนำน้ำที่เหลือจากการล้างข้าวไปใช้ต่อโดยตรงเป็นหลัก Reuse (ใช้ซ้ำ)"
+    },
+
+    // ── Recycle (2 ข้อ) ─────────────────────────────────────────────────────
+    {
+      q: "กรองน้ำง่าย ๆ ก่อนนำกลับไปใช้ เป็นการใช้ R ใด?",
+      r_type: "recycle",
+      options: ["Reduce","Recycle","Store","Rethink"],
+      answer: 1,
+      explanation: "การนำน้ำมาผ่านการบำบัด/กรองเบื้องต้นเพื่อใช้ต่อ คือ Recycle (แปรรูปเพื่อใช้ใหม่)"
+    },
+    {
+      q: "การบำบัดน้ำเสียจากโรงงานให้ได้มาตรฐานก่อนปล่อยออกสู่แหล่งน้ำ จัดเป็นการใช้ R ใด?",
+      r_type: "recycle",
+      options: ["Reduce","Reuse","Recycle","Store"],
+      answer: 2,
+      explanation: "การบำบัดน้ำเสียเป็นการนำน้ำเข้าสู่กระบวนการแปรรูปและจัดการคุณภาพ คือ Recycle (แปรรูปเพื่อใช้ใหม่)"
+    },
+
+    // ── Rethink (3 ข้อ) ─────────────────────────────────────────────────────
+    {
+      q: "คิดหาวิธีใหม่ก่อนใช้น้ำในกิจกรรมใด ๆ เป็นการใช้ R ใด?",
+      r_type: "rethink",
+      options: ["Recycle","Rethink","Reduce","Reuse"],
+      answer: 1,
+      explanation: "การทบทวนและวางแผนเพื่อหาวิธีที่ดีที่สุดก่อนลงมือปฏิบัติ คือ Rethink (คิดใหม่)"
+    },
+    {
+      q: "ข้อใดอธิบายแนวคิด Rethink ในบริบทของเศรษฐกิจหมุนเวียนของน้ำ (CEW) ได้เหมาะสมที่สุด?",
+      r_type: "rethink",
+      options: [
+        "การปรับเปลี่ยนรูปแบบการจัดการน้ำและกระบวนการใช้น้ำเพื่อให้เกิดประสิทธิภาพในการใช้ทรัพยากร",
+        "การออกแบบแนวทางและโครงสร้างระบบการใช้น้ำใหม่เพื่อให้เกิดการหมุนเวียนของทรัพยากรน้ำ",
+        "การพัฒนาเทคโนโลยีการบำบัดน้ำเพื่อเพิ่มประสิทธิภาพในการปรับปรุงคุณภาพน้ำในระบบ",
+        "การวางแผนการใช้น้ำระหว่างภาคส่วนต่าง ๆ เพื่อให้เกิดความสมดุลในการจัดสรรน้ำ"
+      ],
+      answer: 1,
+      explanation: "แนวคิด Rethink เน้นการปรับแนวคิดและโครงสร้างของระบบการจัดการน้ำใหม่ ทั้งในด้านวิธีปฏิบัติ กระบวนการ นโยบาย และเทคโนโลยี เพื่อให้การใช้น้ำสามารถหมุนเวียนและใช้ทรัพยากรได้อย่างคุ้มค่าและยั่งยืน"
+    },
+    {
+      q: "บทบาทสำคัญของแนวคิด Rethink ต่อการดำเนินกลยุทธ์เศรษฐกิจหมุนเวียนของน้ำ (CEW) คือข้อใด?",
+      r_type: "rethink",
+      options: [
+        "ช่วยกำหนดกรอบแนวคิดสำหรับการออกแบบและปรับปรุงระบบการใช้น้ำในหลายระดับ",
+        "ช่วยเพิ่มประสิทธิภาพของกระบวนการบำบัดน้ำภายในระบบจัดการน้ำเสีย",
+        "ช่วยพัฒนาเทคโนโลยีที่ใช้ในการตรวจสอบและควบคุมคุณภาพน้ำในระบบ",
+        "ช่วยวางแผนการจัดสรรทรัพยากรน้ำให้เหมาะสมกับความต้องการของแต่ละภาคส่วน"
+      ],
+      answer: 0,
+      explanation: "แนวคิด Rethink เป็นแนวคิดเชิงระบบที่ทำหน้าที่กำหนดกรอบแนวคิดในการออกแบบและปรับโครงสร้างระบบการจัดการน้ำ ตั้งแต่ระดับบุคคล ชุมชน ไปจนถึงระดับประเทศ"
+    },
+
+    // ── Store (2 ข้อ) ────────────────────────────────────────────────────────
+    {
+      q: "เก็บน้ำฝนใส่ถัง เป็นการใช้ R ใด?",
+      r_type: "store",
+      options: ["Reuse","Store","Reduce","Recycle"],
+      answer: 1,
+      explanation: "การจัดเก็บน้ำไว้เพื่อใช้ภายหลังเป็นหลัก Store (เก็บ)"
+    },
+    {
+      q: "การสร้างอ่างเก็บน้ำขนาดเล็กในไร่นาเพื่อใช้ในช่วงหน้าแล้ง จัดเป็นการใช้ R ใด?",
+      r_type: "store",
+      options: ["Reuse","Reduce","Store","Rethink"],
+      answer: 2,
+      explanation: "การจัดเก็บน้ำเพื่อใช้ในอนาคต เช่น การทำแท็งก์น้ำหรืออ่างเก็บน้ำ คือ Store (เก็บ)"
+    },
+
+    // ── Avoid (3 ข้อ) ────────────────────────────────────────────────────────
+    {
+      q: "ข้อใดเป็นตัวอย่างของ \"Avoid\" ในแนวคิดเศรษฐกิจหมุนเวียนของน้ำ?",
+      r_type: "avoid",
+      options: [
+        "ห้องน้ำแบบไม่ใช้น้ำ",
+        "ใช้น้ำเสียรดน้ำต้นไม้",
+        "กักเก็บน้ำฝนในบ่อพัก",
+        "นำความร้อนจากน้ำเสียมาใช้"
+      ],
+      answer: 0,
+      explanation: "Avoid คือการหลีกเลี่ยงการใช้ทรัพยากรตั้งแต่ต้นทาง เพื่อไม่ให้เกิดการใช้หรือของเสียเลย"
+    },
+    {
+      q: "ข้อใดอธิบายแนวคิด Avoid ในการจัดการน้ำตามแนวคิด CEW ได้เหมาะสมที่สุด?",
+      r_type: "avoid",
+      options: [
+        "การปรับปรุงกระบวนการใช้น้ำให้มีประสิทธิภาพมากขึ้นเพื่อลดปริมาณการใช้น้ำในระบบ",
+        "การออกแบบกิจกรรมหรือกระบวนการใหม่เพื่อป้องกันไม่ให้เกิดการใช้น้ำตั้งแต่ต้น",
+        "การพัฒนาเทคโนโลยีบำบัดน้ำเพื่อให้น้ำสามารถกลับมาใช้ในระบบได้อีกครั้ง",
+        "การวางแผนการจัดการน้ำเพื่อให้เกิดการใช้น้ำอย่างสมดุลในภาคส่วนต่าง ๆ"
+      ],
+      answer: 1,
+      explanation: "แนวคิด Avoid หมายถึงการป้องกันหรือหลีกเลี่ยงการใช้น้ำตั้งแต่ต้นทาง โดยการออกแบบกิจกรรม กระบวนการ หรือเทคโนโลยีที่ไม่ต้องใช้น้ำเลย"
+    },
+    {
+      q: "ข้อใดสะท้อนความแตกต่างระหว่างแนวคิด Avoid และ Reduce ได้เหมาะสมที่สุด?",
+      r_type: "avoid",
+      options: [
+        "Avoid มุ่งลดการใช้น้ำในกระบวนการเดิม ส่วน Reduce มุ่งเพิ่มประสิทธิภาพของระบบน้ำ",
+        "Avoid มุ่งป้องกันไม่ให้เกิดการใช้น้ำตั้งแต่ต้น ส่วน Reduce มุ่งลดปริมาณการใช้น้ำที่ยังคงมีอยู่",
+        "Avoid มุ่งพัฒนาเทคโนโลยีการใช้น้ำใหม่ ส่วน Reduce มุ่งปรับปรุงระบบบำบัดน้ำเสีย",
+        "Avoid มุ่งจัดสรรน้ำให้เหมาะสมกับภาคส่วนต่าง ๆ ส่วน Reduce มุ่งเพิ่มการนำน้ำกลับมาใช้"
+      ],
+      answer: 1,
+      explanation: "Avoid คือการป้องกันไม่ให้เกิดการใช้น้ำตั้งแต่ต้น ขณะที่ Reduce คือการลดปริมาณการใช้น้ำลงจากเดิม แต่ยังคงมีการใช้น้ำอยู่ในระบบ"
+    },
+
+    // ── Cascading (3 ข้อ) ───────────────────────────────────────────────────
+    {
+      q: "\"Cascading\" ในแนวคิดเศรษฐกิจหมุนเวียนของน้ำ หมายถึงอะไร?",
+      r_type: "cascading",
+      options: [
+        "การใช้น้ำในหลายกระบวนการต่อเนื่องก่อนทิ้ง",
+        "การเก็บน้ำไว้ใช้ในอนาคต",
+        "การใช้น้ำซ้ำโดยไม่บำบัด",
+        "การดึงสารอาหารออกจากน้ำเสีย"
+      ],
+      answer: 0,
+      explanation: "Cascading เป็นการใช้ทรัพยากรหลายรอบตามลำดับคุณภาพ เพื่อยืดอายุการใช้งาน โดยใช้งานที่ต้องการคุณภาพสูงก่อน แล้วจึงใช้ในงานที่ต้องการคุณภาพต่ำลงตามลำดับ"
+    },
+    {
+      q: "ข้อใดอธิบายหลักการของ Cascading (การใช้น้ำแบบต่อเนื่องหลายขั้น) ได้เหมาะสมที่สุด?",
+      r_type: "cascading",
+      options: [
+        "การนำน้ำที่ผ่านการใช้งานจากกิจกรรมหนึ่งไปใช้ต่อในกิจกรรมอื่นที่ต้องการคุณภาพน้ำต่ำลง",
+        "การนำน้ำที่ผ่านการบำบัดแล้วกลับมาใช้ในกิจกรรมเดิมเพื่อเพิ่มประสิทธิภาพ",
+        "การเพิ่มแหล่งกักเก็บน้ำเพื่อรองรับการใช้น้ำในกิจกรรมที่ต้องการน้ำปริมาณมาก",
+        "การพัฒนาเทคโนโลยีบำบัดน้ำเพื่อให้สามารถปล่อยน้ำกลับสู่ธรรมชาติได้อย่างปลอดภัย"
+      ],
+      answer: 0,
+      explanation: "แนวคิด Cascading คือการใช้น้ำแบบต่อเนื่องหลายขั้น โดยนำน้ำที่ใช้แล้วจากกิจกรรมหนึ่งไปใช้ในกิจกรรมอื่นที่ยอมรับคุณภาพน้ำที่ต่ำลงได้"
+    },
+    {
+      q: "จากตัวอย่างลำดับการใช้น้ำแบบ Cascading ข้อใดแสดงแนวคิดได้เหมาะสมที่สุด?",
+      r_type: "cascading",
+      options: [
+        "ใช้น้ำสะอาดล้างผัก จากนั้นใช้น้ำเดิมรดต้นไม้ในสวน",
+        "ใช้น้ำสะอาดรดต้นไม้ แล้วนำน้ำเดิมกลับมาล้างผักในครัว",
+        "ใช้น้ำล้างจานแล้วนำน้ำเดิมไปดื่มหลังจากผ่านการกรอง",
+        "ใช้น้ำฝนรดต้นไม้แล้วปล่อยน้ำส่วนเกินลงสู่ท่อระบายน้ำ"
+      ],
+      answer: 0,
+      explanation: "หลักการใช้งานอย่างเป็นลำดับคือการใช้น้ำตามลำดับจากกิจกรรมที่ต้องการน้ำสะอาดมากไปสู่กิจกรรมที่ยอมรับคุณภาพน้ำต่ำลงได้"
+    },
+
+    // ── Replace (3 ข้อ) ──────────────────────────────────────────────────────
+    {
+      q: "Replace ในแนวคิดเศรษฐกิจหมุนเวียนของน้ำหมายถึงอะไร?",
+      r_type: "replace",
+      options: [
+        "การเปลี่ยนแหล่งน้ำจากน้ำบาดาลมาเป็นน้ำฝน",
+        "การใช้ซ้ำโดยไม่บำบัด",
+        "การลดการใช้น้ำลงครึ่งหนึ่ง",
+        "การเก็บน้ำสำรองไว้ใช้ยามฉุกเฉิน"
+      ],
+      answer: 0,
+      explanation: "Replace คือการทดแทนแหล่งน้ำหรือกระบวนการที่ใช้น้ำคุณภาพสูงด้วยแหล่งน้ำหรือกระบวนการที่เหมาะสมกว่า"
+    },
+    {
+      q: "ข้อใดอธิบายแนวคิด Replace (การทดแทน) ในการจัดการทรัพยากรน้ำตามแนวคิด CEW ได้เหมาะสมที่สุด?",
+      r_type: "replace",
+      options: [
+        "การปรับปรุงกระบวนการใช้น้ำเพื่อให้สามารถลดปริมาณการใช้น้ำลงได้ในกิจกรรมต่าง ๆ",
+        "การนำน้ำที่ผ่านการใช้งานแล้วกลับมาใช้ใหม่ในกิจกรรมที่ต้องการคุณภาพน้ำต่ำลง",
+        "การเปลี่ยนไปใช้วิธีการหรือสื่ออื่นแทนน้ำเพื่อลดการพึ่งพาน้ำในกระบวนการต่าง ๆ",
+        "การพัฒนาเทคโนโลยีบำบัดน้ำเพื่อปรับปรุงคุณภาพน้ำก่อนปล่อยสู่สิ่งแวดล้อม"
+      ],
+      answer: 2,
+      explanation: "แนวคิด Replace หมายถึงการเปลี่ยนไปใช้สื่อหรือวิธีการอื่นแทนน้ำ เช่น การใช้ลม สารเคมีเฉพาะทาง หรือวัสดุแห้ง เพื่อทำหน้าที่แทนน้ำในกระบวนการต่าง ๆ"
+    },
+    {
+      q: "ข้อใดเป็นตัวอย่างของการประยุกต์ใช้แนวคิด Replace (การทดแทน) ในการจัดการน้ำได้เหมาะสมที่สุด?",
+      r_type: "replace",
+      options: [
+        "การใช้ระบบระบายความร้อนด้วยอากาศแทนระบบหล่อเย็นที่ต้องใช้น้ำในกระบวนการผลิต",
+        "การนำน้ำที่ผ่านการใช้งานจากกิจกรรมหนึ่งไปใช้ต่อในกิจกรรมที่ต้องการน้ำคุณภาพต่ำกว่า",
+        "การลดปริมาณการใช้น้ำในกระบวนการผลิตโดยปรับปรุงประสิทธิภาพของอุปกรณ์",
+        "การนำน้ำเสียจากระบบบำบัดกลับมาใช้ใหม่ในกิจกรรมที่ไม่ต้องการน้ำสะอาดมาก"
+      ],
+      answer: 0,
+      explanation: "แนวคิด Replace คือการใช้วิธีการหรือสื่ออื่นแทนน้ำโดยตรง เช่น การใช้ระบบ Air Cooling แทน Water Cooling หรือการใช้ Dry Ice Blasting แทนการฉีดน้ำแรงดันสูง"
+    },
+
+    // ── Recover (3 ข้อ) ──────────────────────────────────────────────────────
+    {
+      q: "การแสดงถึงการใช้หลักการ Recover ในแนวคิดเศรษฐกิจหมุนเวียนของน้ำ ข้อใดถูกต้อง?",
+      r_type: "recover",
+      options: [
+        "นำฟอสฟอรัสและไนโตรเจนในน้ำกลับมาใช้",
+        "กักเก็บน้ำฝนในบ่อพักน้ำ",
+        "ใช้น้ำหล่อเย็นในโรงงานอีกครั้ง",
+        "ใช้น้ำเสียจากครัวเรือนรดน้ำต้นไม้"
+      ],
+      answer: 0,
+      explanation: "Recover เป็นการดึง 'คุณค่า' หรือทรัพยากรกลับคืนจากน้ำเสีย เช่น สารละลายหรือพลังงาน ก่อนที่จะถูกปล่อยทิ้ง"
+    },
+    {
+      q: "ข้อใดอธิบายแนวคิด Recover ในการจัดการน้ำตามแนวคิด CEW ได้เหมาะสมที่สุด?",
+      r_type: "recover",
+      options: [
+        "การปรับปรุงกระบวนการใช้น้ำเพื่อให้สามารถใช้น้ำในระบบได้อย่างมีประสิทธิภาพมากขึ้น",
+        "การกู้คืนทรัพยากรที่มีคุณค่าจากน้ำเสียหรือตะกอนเพื่อนำกลับมาใช้ประโยชน์อีกครั้ง",
+        "การพัฒนาเทคโนโลยีบำบัดน้ำเพื่อให้น้ำสามารถปล่อยกลับสู่แหล่งน้ำธรรมชาติได้อย่างปลอดภัย",
+        "การวางแผนการจัดสรรทรัพยากรน้ำให้สอดคล้องกับความต้องการของภาคส่วนต่าง ๆ"
+      ],
+      answer: 1,
+      explanation: "แนวคิด Recover มุ่งเน้นการกู้คืนทรัพยากรที่มีคุณค่าจากน้ำเสียหรือตะกอน เช่น สารอาหาร สารอินทรีย์ โลหะมีค่า หรือพลังงาน"
+    },
+    {
+      q: "ข้อใดสะท้อนบทบาทของกลยุทธ์ Recover ต่อการจัดการทรัพยากรน้ำในแนวคิด CEW ได้เหมาะสมที่สุด?",
+      r_type: "recover",
+      options: [
+        "การออกแบบระบบน้ำให้สามารถลดการใช้น้ำในกิจกรรมหรือกระบวนการต่าง ๆ",
+        "การพัฒนากระบวนการบำบัดน้ำเพื่อปรับปรุงคุณภาพน้ำก่อนปล่อยสู่ธรรมชาติ",
+        "การนำเทคโนโลยีมาใช้เพื่อกู้คืนวัสดุ พลังงาน หรือทรัพยากรจากน้ำเสีย",
+        "การจัดสรรทรัพยากรน้ำให้เหมาะสมกับการใช้งานในภาคเศรษฐกิจต่าง ๆ"
+      ],
+      answer: 2,
+      explanation: "กลยุทธ์ Recover มีบทบาทสำคัญในการกู้คืนทรัพยากรจากน้ำเสีย เช่น วัสดุอินทรีย์ ธาตุเคมี โลหะ หรือพลังงาน ผ่านกระบวนการและเทคโนโลยีที่เหมาะสม"
+    },
+
+    // ── General (4 ข้อ) ──────────────────────────────────────────────────────
+    {
+      q: "ข้อใดไม่ใช่พารามิเตอร์สำคัญในการตรวจวัดคุณภาพน้ำ?",
+      r_type: "general",
+      options: [
+        "pH",
+        "ปริมาณออกซิเจนละลายน้ำ (DO)",
+        "ความดันบรรยากาศ (Atmospheric Pressure)",
+        "ค่าความขุ่น (Turbidity)"
+      ],
+      answer: 2,
+      explanation: "พารามิเตอร์สำคัญในการตรวจวัดคุณภาพน้ำสะท้อนสภาพทางเคมี กายภาพ หรือชีวภาพของน้ำโดยตรง ความดันบรรยากาศไม่ใช่ตัวชี้วัดคุณภาพน้ำโดยตรง"
+    },
+    {
+      q: "หลักการสำคัญของแนวคิดเศรษฐกิจหมุนเวียน มุ่งเน้นเรื่องใด?",
+      r_type: "general",
+      options: [
+        "ลดการใช้น้ำและเพิ่มประสิทธิภาพ",
+        "เพิ่มการใช้น้ำในภาคอุตสาหกรรม",
+        "ใช้น้ำจากธรรมชาติจากแหล่งเดียว",
+        "พัฒนาเทคโนโลยีโดยไม่สนใจสิ่งแวดล้อม"
+      ],
+      answer: 0,
+      explanation: "เศรษฐกิจหมุนเวียนเน้นใช้น้อยลง ใช้ให้คุ้มค่า และหมุนเวียนกลับมาใช้ใหม่"
+    },
+    {
+      q: "การตรวจวัดคุณภาพน้ำมีความสำคัญต่อการจัดการทรัพยากรน้ำในแนวคิด CEW เพราะเหตุใด?",
+      r_type: "general",
+      options: [
+        "ช่วยระบุสถานะและความเหมาะสมของน้ำสำหรับการใช้ซ้ำหรือหมุนเวียน",
+        "ใช้เพื่อวิเคราะห์ปริมาณแร่ธาตุในน้ำเท่านั้น",
+        "ช่วยยืนยันว่าทุกแหล่งน้ำมีคุณภาพเหมือนกัน",
+        "ใช้เฉพาะในงานวิจัยห้องปฏิบัติการ ไม่เกี่ยวกับการจัดการน้ำระดับพื้นที่"
+      ],
+      answer: 0,
+      explanation: "การหมุนเวียนน้ำกลับมาใช้ (Reuse, Cascading, Recover) จะปลอดภัยก็ต่อเมื่อเราทราบ 'คุณภาพ' ของน้ำก่อนนำไปใช้ในวัตถุประสงค์ใหม่"
+    },
+    {
+      q: "ค่า pH ของน้ำเกี่ยวข้องกับแนวคิดทางวิทยาศาสตร์ใดมากที่สุด?",
+      r_type: "general",
+      options: [
+        "กลไกของปฏิกิริยาออกซิเดชัน–รีดักชัน",
+        "สมดุลกรด–เบสและปฏิกิริยาการแตกตัว",
+        "แรงยึดเหนี่ยวโมเลกุลของน้ำ",
+        "พลังงานและการเปลี่ยนสถานะของสสาร"
+      ],
+      answer: 1,
+      explanation: "ค่า pH บ่งชี้ความเข้มข้นของไฮโดรเจนไอออน [H+] การเปลี่ยนแปลง pH เกี่ยวข้องกับสมดุลกรด–เบสและการแตกตัวของกรด–เบส"
+    }
+
+  ]; // 29 ข้อ
+
+  // ─────────────────────────────────────────────
+  // Game State
+  // ─────────────────────────────────────────────
+  let teamName             = "";
+  let players              = [];
+  let teamScore            = 0;
+  let rScores              = {};
+  let shuffledQuestions    = [];
+  let totalQuestionsToPlay = 0;
+  let currentQuestionIndex = -1;
+  let currentPlayerIndex   = 0;
+  let questionsAnswered    = 0;
+  let correctAnswered      = 0;
+  let startTime            = null;
+  let isAnswered           = false;
+  let useTimer             = true;
+  let timerInterval        = null;
+  let timerSeconds         = 30;
+  let wrongAnswers         = [];
+
+  function freshRScores() {
+    return {
+      reduce:0, reuse:0, recycle:0, rethink:0, store:0,
+      avoid:0, cascading:0, replace:0, recover:0, general:0
+    };
+  }
+
+  // ─────────────────────────────────────────────
+  // Shuffle แบบไม่ให้ R-type เดียวกันติดกัน
+  // ─────────────────────────────────────────────
+  /**
+   * สุ่ม array แล้วจัดเรียงใหม่เพื่อให้
+   * ไม่มี r_type เดียวกันอยู่ติดกัน
+   * ใช้ Greedy: วนเลือก element ที่ r_type ≠ r_type ของตัวก่อนหน้า
+   * ถ้าทำไม่ได้ (เหลือแต่ r_type เดียว) ให้ใส่ตามลำดับที่เหลือ
+   */
+  function shuffleNoAdjacentRType(array) {
+    // สุ่มก่อน
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+
+    const result = [];
+    const pool   = [...arr];
+
+    while (pool.length > 0) {
+      const lastType = result.length > 0 ? result[result.length - 1].r_type : null;
+
+      // หา index ของ element แรกที่ r_type ≠ lastType
+      const idx = pool.findIndex(q => q.r_type !== lastType);
+
+      if (idx === -1) {
+        // ไม่มีตัวเลือกอื่น → ใส่ตามลำดับที่เหลือ (กรณีที่หลีกเลี่ยงไม่ได้)
+        result.push(...pool.splice(0, pool.length));
+      } else {
+        result.push(pool.splice(idx, 1)[0]);
+      }
+    }
+
+    return result;
+  }
+
+  // ─────────────────────────────────────────────
+  // Screen helpers
+  // ─────────────────────────────────────────────
+  function showScreen(id) {
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[id].classList.add('active');
+  }
+
+  // ─────────────────────────────────────────────
+  // Setup: dynamic player inputs & question options
+  // ─────────────────────────────────────────────
+  function buildPlayerInputs(n) {
+    playerInputsGrid.innerHTML = "";
+    for (let i = 1; i <= n; i++) {
+      const div = document.createElement("div");
+      div.innerHTML = `
+        <label class="block text-sm font-medium text-gray-700">
+          ผู้เล่น ${i} <span class="text-red-500">*</span>
+        </label>
+        <input type="text" id="player${i}"
+          class="player-name-input mt-1 block w-full px-3 py-2 border border-gray-300
+                 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          placeholder="ชื่อผู้เล่น ${i}">
+      `;
+      playerInputsGrid.appendChild(div);
+    }
+  }
+
+  function buildQuestionOptions() {
+    const total = allQuestions.length;
+    numQuestionsSelect.innerHTML = "";
+    const presets = [
+      { val: Math.min(10, total), label: "10 ข้อ (เร็ว)"    },
+      { val: Math.min(16, total), label: "16 ข้อ (พอดี)"    },
+      { val: total,               label: `ทั้งหมด ${total} ข้อ` }
+    ];
+    const seen = new Set();
+    presets.forEach(p => {
+      if (!seen.has(p.val)) {
+        seen.add(p.val);
+        const opt = document.createElement("option");
+        opt.value       = p.val;
+        opt.textContent = p.label;
+        numQuestionsSelect.appendChild(opt);
+      }
+    });
+    numQuestionsSelect.value = total;
+  }
+
+  numPlayersSelect.addEventListener("change", () => {
+    buildPlayerInputs(parseInt(numPlayersSelect.value));
+  });
+
+  // ─────────────────────────────────────────────
+  // Timer
+  // ─────────────────────────────────────────────
+  const TIMER_MAX = 30;
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    timerSeconds = TIMER_MAX;
+    updateTimerUI();
+    timerWrapper.classList.remove("hidden");
+    timerInterval = setInterval(() => {
+      timerSeconds--;
+      updateTimerUI();
+      if (timerSeconds <= 0) { clearInterval(timerInterval); handleTimeUp(); }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(timerInterval);
+    timerWrapper.classList.add("hidden");
+  }
+
+  function updateTimerUI() {
+    timerText.textContent = timerSeconds;
+    const pct = (timerSeconds / TIMER_MAX) * 100;
+    timerCircle.style.strokeDashoffset = 100 - pct;
+    if      (timerSeconds > 15) timerCircle.style.stroke = "#3b82f6";
+    else if (timerSeconds > 8)  timerCircle.style.stroke = "#f59e0b";
+    else                        timerCircle.style.stroke = "#ef4444";
+  }
+
+  function handleTimeUp() {
+    if (isAnswered) return;
+    isAnswered = true;
+    const qData   = shuffledQuestions[currentQuestionIndex];
+    const optBtns = Array.from(optionsContainer.querySelectorAll("button"));
+    optBtns.forEach(b => b.classList.add("disabled"));
+    optBtns[qData.answer].classList.add("correct");
+
+    showQuickModal("⏰ หมดเวลา!", false);
+    feedbackMessage.textContent = "⏰ หมดเวลา!";
+    feedbackMessage.className   = "text-lg font-bold mb-2 text-orange-600";
+    feedbackExplanation.textContent =
+      `คำตอบที่ถูกต้องคือ ${["A","B","C","D"][qData.answer]}. ` +
+      `${qData.options[qData.answer]} — ${qData.explanation}`;
+    feedbackArea.classList.remove("hidden");
+
+    wrongAnswers.push({ qData, selected: -1 });
+    questionsAnswered++;
+    currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+    nextQuestionBtn.disabled    = false;
+    nextQuestionBtn.textContent =
+      questionsAnswered >= totalQuestionsToPlay ? "ดูผลคะแนน" : "คำถามถัดไป";
+    updateUI();
+  }
+
+  // ─────────────────────────────────────────────
+  // Modal
+  // ─────────────────────────────────────────────
+  function showQuickModal(message, isCorrect) {
+    feedbackContent.textContent = message;
+    feedbackContent.className =
+      "feedback-modal text-center p-10 rounded-2xl text-white font-bold text-3xl shadow-xl " +
+      (isCorrect ? "bg-green-500" : "bg-red-500");
+    feedbackModal.classList.remove("hidden");
+    setTimeout(() => feedbackModal.classList.add("hidden"), 900);
+  }
+
+  // ─────────────────────────────────────────────
+  // UI Update
+  // ─────────────────────────────────────────────
+  function updateRScoresUI() {
+    Object.keys(rScores).forEach(key => {
+      const el = document.getElementById(`score-${key}`);
+      if (el) el.textContent = rScores[key];
+    });
+  }
+
+  function updateUI() {
+    displayTeamName.textContent       = teamName;
+    teamScoreDisplay.textContent      = teamScore;
+    totalQuestionsDisplay.textContent = totalQuestionsToPlay;
+    questionIndexDisplay.textContent  =
+      Math.max(0, Math.min(currentQuestionIndex + 1, totalQuestionsToPlay));
+    progressCount.textContent = questionsAnswered;
+    progressTotal.textContent = totalQuestionsToPlay;
+    const pct = totalQuestionsToPlay > 0
+      ? (questionsAnswered / totalQuestionsToPlay) * 100 : 0;
+    progressBar.style.width = `${pct}%`;
+    if (players.length > 0)
+      currentPlayerName.textContent = players[currentPlayerIndex].name;
+    updateRScoresUI();
+  }
+
+  // ─────────────────────────────────────────────
+  // Game Flow
+  // ─────────────────────────────────────────────
+  function handleStartGame() {
+    const name       = teamNameInput.value.trim();
+    const numPlayers = parseInt(numPlayersSelect.value);
+    const inputs     = Array.from(document.querySelectorAll('.player-name-input'));
+    const playerNames= inputs.map(i => i.value.trim());
+
+    if (!name) { setupError.textContent = "กรุณากรอกชื่อทีม"; return; }
+    if (playerNames.some(n => !n)) {
+      setupError.textContent = `กรุณากรอกชื่อผู้เล่นให้ครบทั้ง ${numPlayers} คน`;
+      return;
+    }
+    setupError.textContent = "";
+
+    teamName        = name;
+    players         = playerNames.map(n => ({ name: n, score: 0 }));
+    teamScore       = 0;
+    rScores         = freshRScores();
+    wrongAnswers    = [];
+    correctAnswered = 0;
+    useTimer        = timerToggle.checked;
+
+    // ── สุ่มคำถามแบบไม่ให้ R-type ติดกัน ──
+    const requested      = parseInt(numQuestionsSelect.value);
+    const noAdjacent     = shuffleNoAdjacentRType([...allQuestions]);
+    shuffledQuestions    = noAdjacent.slice(0, requested);
+    totalQuestionsToPlay = shuffledQuestions.length;
+
+    startTime            = new Date();
+    currentQuestionIndex = -1;
+    currentPlayerIndex   = 0;
+    questionsAnswered    = 0;
+
+    optionsContainer.innerHTML = "";
+    feedbackArea.classList.add("hidden");
+    questionText.textContent   = 'กดปุ่ม "สุ่มคำถาม" เพื่อเริ่ม!';
+    nextQuestionBtn.disabled    = false;
+    nextQuestionBtn.textContent = "สุ่มคำถาม";
+
+    showScreen("game");
+    updateUI();
+  }
+
+  function renderQuestion() {
+    const qData = shuffledQuestions[currentQuestionIndex];
+    questionText.textContent =
+      `(${currentQuestionIndex + 1}/${totalQuestionsToPlay}) ${qData.q}`;
+    optionsContainer.innerHTML = "";
+    feedbackArea.classList.add("hidden");
+
+    qData.options.forEach((opt, idx) => {
+      const btn = document.createElement("button");
+      btn.className =
+        "option-button w-full text-left bg-white border-2 border-blue-200 text-blue-800 " +
+        "font-semibold py-3 px-4 rounded-lg hover:bg-blue-100 hover:border-blue-400 " +
+        "focus:outline-none focus:ring-4 focus:ring-blue-200 transition";
+      btn.textContent = `${["A","B","C","D"][idx]}. ${opt}`;
+      btn.addEventListener("click", () => handleAnswer(idx));
+      optionsContainer.appendChild(btn);
+    });
+
+    nextQuestionBtn.disabled    = true;
+    nextQuestionBtn.textContent = "ตอบก่อนเพื่อไปต่อ";
+    if (useTimer) startTimer();
+    updateUI();
+  }
+
+  function nextQuestion() {
+    if (questionsAnswered >= totalQuestionsToPlay) { endGame(); return; }
+    currentQuestionIndex++;
+    isAnswered = false;
+    renderQuestion();
+  }
+
+  function handleAnswer(selectedIndex) {
+    if (isAnswered) return;
+    isAnswered = true;
+    stopTimer();
+
+    const qData        = shuffledQuestions[currentQuestionIndex];
+    const correctIndex = qData.answer;
+    const rType        = qData.r_type;
+    const optBtns      = Array.from(optionsContainer.querySelectorAll("button"));
+
+    optBtns.forEach(b => b.classList.add("disabled"));
+    optBtns.forEach((b, i) => {
+      if (i === correctIndex)       b.classList.add("correct");
+      else if (i === selectedIndex) b.classList.add("incorrect");
+    });
+
+    const isCorrect = selectedIndex === correctIndex;
+
+    if (isCorrect) {
+      teamScore += 10;
+      players[currentPlayerIndex].score += 10;
+      correctAnswered++;
+      if (Object.prototype.hasOwnProperty.call(rScores, rType)) {
+        rScores[rType] += 10;
+      }
+      showQuickModal("✅ ถูกต้อง! +10 Coins", true);
+      feedbackMessage.textContent =
+        `✅ ถูกต้อง! ได้รับ 10 Coins (สะสมใน: ${String(rType).toUpperCase()})`;
+      feedbackMessage.className = "text-lg font-bold mb-2 text-green-600";
+    } else {
+      wrongAnswers.push({ qData, selected: selectedIndex });
+      showQuickModal("❌ ผิดจ้า!", false);
+      feedbackMessage.textContent = "❌ ผิดค่ะ... ลองพยายามอีกครั้งนะคะ!";
+      feedbackMessage.className   = "text-lg font-bold mb-2 text-red-600";
+    }
+
+    feedbackExplanation.textContent =
+      `คำตอบที่ถูกต้องคือ ${["A","B","C","D"][correctIndex]}. ` +
+      `${qData.options[correctIndex]} — ${qData.explanation}`;
+    feedbackArea.classList.remove("hidden");
+
+    questionsAnswered++;
+    currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+    nextQuestionBtn.disabled    = false;
+    nextQuestionBtn.textContent =
+      questionsAnswered >= totalQuestionsToPlay ? "ดูผลคะแนน" : "คำถามถัดไป";
+    updateUI();
+  }
+
+  // ─────────────────────────────────────────────
+  // End Game
+  // ─────────────────────────────────────────────
+  function endGame() {
+    stopTimer();
+    const endTime = new Date();
+    const diffSec = startTime ? Math.round((endTime - startTime) / 1000) : 0;
+    const mins    = Math.floor(diffSec / 60);
+    const secs    = diffSec % 60;
+
+    finalTeamName.textContent  = teamName;
+    finalTeamScore.textContent = teamScore;
+    totalTimeEl.textContent    = `${mins} นาที ${secs} วินาที`;
+    finalAnswered.textContent  = `${correctAnswered} ถูก / ${questionsAnswered} ข้อ`;
+
+    // Player table
+    statsTableBody.innerHTML = "";
+    players.forEach(p => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="py-2 px-4 border-b text-left">${p.name}</td>
+        <td class="py-2 px-4 border-b">${p.score}</td>
+      `;
+      statsTableBody.appendChild(tr);
+    });
+
+    // R-Type summary
+    finalRSummary.innerHTML = "";
+    const order = [
+      "reduce","reuse","recycle","rethink","store",
+      "avoid","cascading","replace","recover","general"
+    ];
+    order.forEach(r => {
+      const div = document.createElement("div");
+      div.className = "p-3 bg-white rounded-lg border border-blue-100 shadow-sm";
+      div.innerHTML = `
+        <p class="text-xs font-bold text-gray-600">${r.toUpperCase()}</p>
+        <p class="text-2xl font-extrabold text-blue-700">
+          ${rScores[r] ?? 0}
+          <span class="text-sm font-bold text-gray-500">Coins</span>
+        </p>
+      `;
+      finalRSummary.appendChild(div);
+    });
+
+    // Wrong-answer review
+    wrongAnswersContainer.innerHTML = "";
+    if (wrongAnswers.length > 0) {
+      reviewSection.classList.remove("hidden");
+      wrongAnswers.forEach((item, i) => {
+        const { qData, selected } = item;
+        const labels = ["A","B","C","D"];
+        const selectedText = selected === -1
+          ? "⏰ หมดเวลา (ไม่ได้ตอบ)"
+          : `${labels[selected]}. ${qData.options[selected]}`;
+        const card = document.createElement("div");
+        card.className = "wrong-card bg-red-50 p-4 rounded-lg";
+        card.innerHTML = `
+          <p class="font-bold text-gray-800 mb-2">ข้อ ${i + 1}: ${qData.q}</p>
+          <p class="text-red-600 text-sm mb-1">❌ คำตอบที่เลือก: ${selectedText}</p>
+          <p class="text-green-700 text-sm mb-2">
+            ✅ คำตอบที่ถูกต้อง: ${labels[qData.answer]}. ${qData.options[qData.answer]}
+          </p>
+          <p class="text-gray-600 text-sm bg-white p-2 rounded border border-gray-200">
+            💡 ${qData.explanation}
+          </p>
+        `;
+        wrongAnswersContainer.appendChild(card);
+      });
+    } else {
+      reviewSection.classList.add("hidden");
+    }
+
+    showScreen("scoreboard");
+  }
+
+  // ─────────────────────────────────────────────
+  // Reset / Play Again
+  // ─────────────────────────────────────────────
+  function resetGame() {
+    stopTimer();
+    teamName             = "";
+    players              = [];
+    teamScore            = 0;
+    rScores              = freshRScores();
+    shuffledQuestions    = [];
+    totalQuestionsToPlay = 0;
+    currentQuestionIndex = -1;
+    currentPlayerIndex   = 0;
+    questionsAnswered    = 0;
+    correctAnswered      = 0;
+    startTime            = null;
+    isAnswered           = false;
+    wrongAnswers         = [];
+    teamNameInput.value        = "";
+    optionsContainer.innerHTML = "";
+    feedbackArea.classList.add("hidden");
+    nextQuestionBtn.textContent = "สุ่มคำถาม";
+    nextQuestionBtn.disabled    = false;
+    setupError.textContent      = "";
+  }
+
+  function handlePlayAgain() {
+    resetGame();
+    buildPlayerInputs(parseInt(numPlayersSelect.value));
+    showScreen("setup");
+  }
+
+  // ─────────────────────────────────────────────
+  // Event Listeners
+  // ─────────────────────────────────────────────
+  startGameBtn.addEventListener("click", handleStartGame);
+
+  nextQuestionBtn.addEventListener("click", () => {
+    if (questionsAnswered >= totalQuestionsToPlay && currentQuestionIndex >= 0) {
+      endGame();
+    } else {
+      nextQuestion();
+    }
+  });
+
+  playAgainBtn.addEventListener("click", handlePlayAgain);
+  endEarlyBtn.addEventListener("click", () => { if (startTime) endGame(); });
+
+  // ─────────────────────────────────────────────
+  // Init
+  // ─────────────────────────────────────────────
+  buildPlayerInputs(parseInt(numPlayersSelect.value));
+  buildQuestionOptions();
+  showScreen("setup");
+  </script>
+</body>
+</html>
